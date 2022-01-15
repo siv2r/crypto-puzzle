@@ -1,0 +1,7 @@
+# binaries
+a.out
+*.o
+main
+
+# tools
+.vscode
