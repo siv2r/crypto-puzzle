@@ -13,8 +13,11 @@ TODO: what is '\x' in C?
 * used in strings to store hex value in single byte 
 */
 
-/* prints bufer in hex format */
+/* prints buffer in hex format */
 void print_buf(const unsigned char *buf, size_t n);
+
+/* prints buffer in ASCII format */
+void print_ascii(const unsigned char *buf, size_t n);
 
 /* converts a single hex character (4 bits) to a byte (8 bits) */
 unsigned char hex_char_to_buf(const unsigned char inp);

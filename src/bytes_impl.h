@@ -7,13 +7,21 @@
 
 #include "../include/util.h"
 
-void print_buf(const unsigned char *buf, size_t n) {
+void print_hex(const unsigned char *buf, size_t n) {
     size_t i;
     for (i = 0; i < n; i++) {
         printf("%02x", buf[i]);
         if(i % 4 == 3) {
             printf(" ");
         }
+    }
+    printf("\n");
+}
+
+void print_ascii(const unsigned char *buf, size_t n) {
+    size_t i;
+    for (i = 0; i < n; i++) {
+        printf("%c", buf[i]);
     }
     printf("\n");
 }
@@ -32,10 +40,8 @@ unsigned char hex_char_to_buf(const unsigned char inp) {
 }
 
 /* given hex string is stored as big endian bytes in unsinged char
-TODO: is there a way to set the out pointer by passing it through arguments?
-TODO: accept an intialized array (memory allocated by the user) and its length
-TODO: assert size
-TODO: load the given hex string to the array
+Q  : is there a way to set the out pointer by passing it through arguments?
+Ans: yes, but in that case the user has to allocate memory (either dynamically or statically)
 */
 void hex_str_to_buf(unsigned char *out, int out_len, const unsigned char *inp, int inp_len) {
     int i = 0, j = 0, temp = (inp_len + 1)/2; /* output string length */
