@@ -15,6 +15,9 @@
 #include "scalar.h"
 #include "scalar_impl.h"
 
+/* global variables */
+secp256k1_scalar s1, s2, a, b, e1, e2, sk;
+
 void bip340_challenge(secp256k1_scalar *out, const unsigned char *rx32,
                       const unsigned char *msg, int msglen,
                       unsigned char *pkx32) {
@@ -43,6 +46,27 @@ void bip340_challenge(secp256k1_scalar *out, const unsigned char *rx32,
     secp256k1_scalar_set_b32(out, buf, NULL);
 }
 
+/* tests whether the sk is valid */
+void test_main() {
+    secp256k1_scalar k1, k2, temp1, temp2;
+
+    /* calculate k1 */
+    secp256k1_scalar_mul(&temp1, &e1, &sk);
+    secp256k1_scalar_negate(&temp1, &temp1);
+    assert(secp256k1_scalar_add(&k1, &s1, &temp1) == 1);
+
+    /* calculate k2 */
+    secp256k1_scalar_mul(&temp2, &e2, &sk);
+    secp256k1_scalar_negate(&temp2, &temp2);
+    assert(secp256k1_scalar_add(&k2, &s2, &temp2) == 0);
+
+    /* check if k2 == a*k1 + b */
+    secp256k1_scalar rhs;
+    secp256k1_scalar_mul(&rhs, &a, &k1);
+    assert(secp256k1_scalar_add(&rhs, &rhs, &b) == 0);
+    assert(secp256k1_scalar_eq(&k2, &rhs) == 1);
+}
+
 int main() {
     /* Initialize signatures and x co-ordinate of nonces */
     unsigned char s1_buf[32];
@@ -50,10 +74,14 @@ int main() {
     unsigned char r1x_buf[32];
     unsigned char r2x_buf[32];
 
-    unsigned char s1_hex[] = "F801B1BF3D103771F74C5F70BB3A3557D87E5116294A9ABD357DC4367D123C9D";
-    unsigned char s2_hex[] = "7FC2B9C64FA080688D020407900CE9DE887B9CBB25C34280DAB6E172CC39C2F0";
-    unsigned char r1x_hex[] = "19D6493FBA397CDD1C1E10F9AB51E65531D587D7C53C04673779E1A307AC795C";
-    unsigned char r2x_hex[] = "0293422DCE97000231B98AFE3CBE405601D4129296AB902822514DF9B2F0BC9D";
+    unsigned char s1_hex[] =
+        "F801B1BF3D103771F74C5F70BB3A3557D87E5116294A9ABD357DC4367D123C9D";
+    unsigned char s2_hex[] =
+        "7FC2B9C64FA080688D020407900CE9DE887B9CBB25C34280DAB6E172CC39C2F0";
+    unsigned char r1x_hex[] =
+        "19D6493FBA397CDD1C1E10F9AB51E65531D587D7C53C04673779E1A307AC795C";
+    unsigned char r2x_hex[] =
+        "0293422DCE97000231B98AFE3CBE405601D4129296AB902822514DF9B2F0BC9D";
     hex_str_to_buf(s1_buf, 32, s1_hex, 64);
     hex_str_to_buf(s2_buf, 32, s2_hex, 64);
     hex_str_to_buf(r1x_buf, 32, r1x_hex, 64);
@@ -61,7 +89,6 @@ int main() {
 
     /* set s1, s1 and :
        case 1: a = 31337, b = 69420*/
-    secp256k1_scalar s1, s2, a, b;
     secp256k1_scalar_set_int(&a, 31337);
     secp256k1_scalar_set_int(&b, 69420);
     secp256k1_scalar_set_b32(&s1, s1_buf, NULL);
@@ -83,28 +110,31 @@ int main() {
     hex_str_to_buf(msg2_buf, 32, msg2_hex, 64);
 
     /* calculate e1 and e2 */
-    secp256k1_scalar e1, e2, sk;
     bip340_challenge(&e1, r1x_buf, msg1_buf, 32, pkx_buf);
     bip340_challenge(&e2, r2x_buf, msg2_buf, 32, pkx_buf);
 
     /* find the private key x = (s2-a*s1-b)*(e2-a*e1)^-1*/
-    secp256k1_scalar_mul(&e1, &e1, &a);
-    secp256k1_scalar_negate(&e1, &e1);
-    secp256k1_scalar_add(&e1, &e1, &e2); /* there is overflow in this addition */
-    secp256k1_scalar_inverse_var(&e1, &e1);
+    secp256k1_scalar temp1, temp2;
+    secp256k1_scalar_mul(&temp1, &e1, &a);
+    secp256k1_scalar_negate(&temp1, &temp1);
+    assert(secp256k1_scalar_add(&temp1, &temp1, &e2) == 1);  // TODO: will overflow cause errors?
+    secp256k1_scalar_inverse_var(&temp1, &temp1);
 
-    secp256k1_scalar_mul(&s1, &s1, &a);
-    assert(secp256k1_scalar_add(&s1, &s1, &b) == 0);
-    secp256k1_scalar_negate(&s1, &s1);
-    assert(secp256k1_scalar_add(&s1, &s1, &s2) == 0);
+    secp256k1_scalar_mul(&temp2, &s1, &a);
+    assert(secp256k1_scalar_add(&temp2, &temp2, &b) == 0);
+    secp256k1_scalar_negate(&temp2, &temp2);
+    assert(secp256k1_scalar_add(&temp2, &temp2, &s2) == 0);
 
-    secp256k1_scalar_mul(&sk, &s1, &e1);
+    secp256k1_scalar_mul(&sk, &temp1, &temp2);
 
     /* print the seckey in hex and ascii format */
     unsigned char seckey[32];
     secp256k1_scalar_get_b32(seckey, &sk);
     print_hex(seckey, 32);
     print_ascii(seckey, 32);
+
+    /* run tests */
+    test_main();
 
     return 0;
 }

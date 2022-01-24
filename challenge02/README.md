@@ -17,7 +17,7 @@ Linear Congruential PRNG's parameters
 
 ---
 Linear Congruential PRNG's parameters
-- a = `1337`, b = `31337`
+- a = `1337`, b = `69420`
   
 ### Public Key
 `21922E7D5988A711123794D70B19C2827B1630BC2AB99887418D9EF4AFDB1AC2`
