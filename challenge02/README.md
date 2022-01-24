@@ -34,12 +34,10 @@ Linear Congruential PRNG's parameters
 ### My Solution
 - signature1 = R.x || s1
 - signature2 = R.x || s2
-- s1 = r + tagged_hash(R.x || P.x || m1).x
+- s1 = k1 + tagged_hash(R.x || P.x || m1).x ----> (i)
   - let e1 = tagged_hash(R.x || P.x || m1)
-- s2 = r + tagged_hash(R.x || P.x || m2).x
+- s2 = k2 + tagged_hash(R.x || P.x || m2).x ----> (ii)
   - let e2 = tagged_hash(R.x || P.x || m2)
-- Now, s1 - s2 = (e1 - e2).x 
-- Therefore, x = (s1 - s2).(e1 - e2)^-1
-- The calculated value of x is:
-  - `636f6e67726174756c6174696f6e7320796f7520666f756e642074686520736b` (in hex)
-  - congratulations you found the sk (in ascii)
+- k2 = a.k1 + b ----> (iii)
+- Now, solve for x in (i), (ii) and (iii)
+- x = (a.s1 - s2 + b) . (a.e1 - e2)^-1

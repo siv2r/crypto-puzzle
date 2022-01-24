@@ -48,6 +48,7 @@ void bip340_challenge(secp256k1_scalar *out, const unsigned char *rx32,
 
 /* tests whether the sk is valid */
 void test_main() {
+    printf("Running tests.....\n");
     secp256k1_scalar k1, k2, temp1, temp2;
 
     /* calculate k1 */
@@ -65,6 +66,8 @@ void test_main() {
     secp256k1_scalar_mul(&rhs, &a, &k1);
     assert(secp256k1_scalar_add(&rhs, &rhs, &b) == 0);
     assert(secp256k1_scalar_eq(&k2, &rhs) == 1);
+
+    printf("No problems found!\n");
 }
 
 int main() {

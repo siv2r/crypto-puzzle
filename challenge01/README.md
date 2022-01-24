@@ -25,6 +25,3 @@ Find the private key. Given that nonce is reused for both the signatures below. 
   - let e2 = tagged_hash(R.x || P.x || m2)
 - Now, s1 - s2 = (e1 - e2).x 
 - Therefore, x = (s1 - s2).(e1 - e2)^-1
-- The calculated value of x is:
-  - `636f6e67726174756c6174696f6e7320796f7520666f756e642074686520736b` (in hex)
-  - congratulations you found the sk (in ascii)
