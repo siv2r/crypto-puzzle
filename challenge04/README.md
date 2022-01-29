@@ -28,3 +28,5 @@ Steps to recover secret from the given shares:
    - evaluate the constructed polynomial at `x = 0`
    - Congrats, you recovered the secret!
 
+For detailed explanation, checkout [Shamir Secret Sharing](https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing).
+
