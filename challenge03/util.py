@@ -19,7 +19,7 @@ def xonly_point_agg(xonly_points: List[bytes]) -> Point:
 
 def xonly_int(b: bytes, P_agg: Point) -> int:
     k = int_from_bytes(b)
-    if has_even_y(point_mul(G, k)) != has_even_y(P_agg):
+    if has_even_y(point_mul(G, k)) != has_even_y(P_agg): #TODO: why this condition?
         k = n - k
     return k
 
