@@ -27,21 +27,38 @@ def forge_signature(honest_signer, msg):
     forger = NaiveMultisigSigner()
     X1 = honest_signer.get_pubkey() #TODO: this pubkey has even y always? ---> no
     X2 = forger.get_pubkey()
-    pubkeys = n*[X1] + [X2] #pubkey list
-    agg_pubkey = bytes_from_point(xonly_point_agg(pubkeys))
+    X1_pt = lift_x(X1)
+    X2_pt = lift_x(X2)
+    X3_pt = (X1_pt[0], p-X1_pt[1])
+    X3 = bytes_from_point(X3_pt)
+    final_pt = point_add(X1_pt, point_add(X2_pt, X3_pt))
+    pubkeys = [X1, X2, X3]
+    agg_pt = xonly_point_agg(pubkeys)
+    agg_pubkey = bytes_from_point(agg_pt)
+    # print("X1              : {}".format(X1_pt))
+    # print("X3              : {}".format(X3_pt))
+    # print("X2_pt           : {}".format(X2_pt))
+    # print("final_pt        : {}".format(final_pt))
+    # print("agg_pt          : {}".format(agg_pt))
+    # print("agg (bytes)     : {}".format(agg_pubkey))
+    # print("final_pt (bytes): {}".format(bytes_from_point(final_pt)))
 
     # get nonce commitment of honest signer ---> Interactive Round 1
     # now send your nonce commitment as R_mal_new = negate(R_hon) + R_mal
     R1 = honest_signer.gen_partial_pubnonce()
     R2 = forger.gen_partial_pubnonce()
-    nonces = n*[R1] + R2
-    R = xonly_point_agg(nonce)
+    R1_pt = lift_x(R1)
+    R2_pt = lift_x(R2)
+    R3_pt = (R1_pt[0], p-R1_pt[1])
+    R3 = bytes_from_point(R3_pt)
+    nonces = [R1, R2, R3]
+    R = xonly_point_agg(nonces)
     aggnonce = cbytes_from_point(R)
 
     # get partial signature of honest signer ----> Interactive Round 2
     # now send your partial signature as s_mal_new = s_mal + neg(s_hon)
     #TODO: is it necessary for bytes-> int conversion here? can't python add two bytes (not concat)?
-    s2 = signer2.gen_partial_sig(X, aggnonce, msg)
+    s2 = forger.gen_partial_sig(pubkeys, aggnonce, msg)
 
     sig = bytes_from_point(R) + s2
     # verification
@@ -49,7 +66,7 @@ def forge_signature(honest_signer, msg):
     # c = H(X, R, msg)
     # G * (s_mal_new + s_hon) ?= R + c * X
     # G * (s_mal) ?= R + c * X => returns true since, R and X have been modified
-    return X, sig
+    return pubkeys, sig
 # BIP-340 impl notes
 # EC point is stored as int tuple so, need to convert it to bytes
 # bytes are converted to int for scalar arithmetic
@@ -86,7 +103,7 @@ class NaiveMultisigSigner:
         return pubkey_gen(self.secnonce)
 
     def gen_partial_sig(self, pubkeys, aggnonce, msg):
-        # assert pubkey_gen(self.seckey) in pubkeys
+        assert pubkey_gen(self.seckey) in pubkeys
         assert len(aggnonce) == 33
         assert len(msg) == 32
 
@@ -136,7 +153,7 @@ def test_forgery():
     agg_pubkey = bytes_from_point(xonly_point_agg(pubkeys))
 
     assert honest_signer.get_pubkey() in pubkeys
-    # assert (agg_pubkey, msg) not in honest_signer.seen_queries
+    assert (agg_pubkey, msg) not in honest_signer.seen_queries
     assert schnorr_verify(msg, agg_pubkey, sig)
     print("Congrats, you are a rogue cryptographer!")
 
