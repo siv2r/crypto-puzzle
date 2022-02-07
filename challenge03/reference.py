@@ -9,7 +9,7 @@ import binascii
 #
 # If you want to print values on an individual basis, use
 # the pretty() function, e.g., print(pretty(foo)).
-DEBUG = False
+DEBUG = True
 
 p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
 n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -21,7 +21,7 @@ G = (0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798, 0x483AD
 Point = Tuple[int, int]
 
 # This implementation can be sped up by storing the midstate after hashing
-# tag_hash instead of rehashing it all the time.
+# store tag instead of getting from user and rehashing it all the time.
 def tagged_hash(tag: str, msg: bytes) -> bytes:
     tag_hash = hashlib.sha256(tag.encode()).digest()
     return hashlib.sha256(tag_hash + tag_hash + msg).digest()
@@ -88,6 +88,8 @@ def has_even_y(P: Point) -> bool:
     assert not is_infinite(P)
     return y(P) % 2 == 0
 
+#NOTE: here, we return only x(P) so, we don't enforce y(P) = even. 
+# Other function will assume y(P) when they recieve x(P) in bytes
 def pubkey_gen(seckey: bytes) -> bytes:
     d0 = int_from_bytes(seckey)
     if not (1 <= d0 <= n - 1):
@@ -106,7 +108,7 @@ def schnorr_sign(msg: bytes, seckey: bytes, aux_rand: bytes) -> bytes:
         raise ValueError('aux_rand must be 32 bytes instead of %i.' % len(aux_rand))
     P = point_mul(G, d0)
     assert P is not None
-    d = d0 if has_even_y(P) else n - d0
+    d = d0 if has_even_y(P) else n - d0 #NOTE: (d, P) is a valid schnorr key pair. y(P) = even
     t = xor_bytes(bytes_from_int(d), tagged_hash("BIP0340/aux", aux_rand))
     k0 = int_from_bytes(tagged_hash("BIP0340/nonce", t + bytes_from_point(P) + msg)) % n
     if k0 == 0:
@@ -132,11 +134,13 @@ def schnorr_verify(msg: bytes, pubkey: bytes, sig: bytes) -> bool:
     r = int_from_bytes(sig[0:32])
     s = int_from_bytes(sig[32:64])
     if (P is None) or (r >= p) or (s >= n):
+        print("assert on r, s, P failed")
         debug_print_vars()
         return False
     e = int_from_bytes(tagged_hash("BIP0340/challenge", sig[0:32] + pubkey + msg)) % n
     R = point_add(point_mul(G, s), point_mul(P, n - e))
-    if (R is None) or (not has_even_y(R)) or (x(R) != r):
+    if (R is None) or (not has_even_y(R)) or (x(R) != r): #TODO: why not R == point_mul(G, r)??
+        print("x(R) != r, y(R) is not even, or R == None")
         debug_print_vars()
         return False
     debug_print_vars()

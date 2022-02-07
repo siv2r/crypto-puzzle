@@ -23,42 +23,27 @@ def forge_signature(honest_signer, msg):
     the challenge would be trivial.
     Good luck!
     """
-    malicious_signer = NaiveMultisigSigner()
-    X_hon = honest_signer.get_pubkey()
-    X_mal = malicious_signer.get_pubkey()
+    # X1 = honest, X2 = forger
+    forger = NaiveMultisigSigner()
+    X1 = honest_signer.get_pubkey() #TODO: this pubkey has even y always? ---> no
+    X2 = forger.get_pubkey()
+    pubkeys = n*[X1] + [X2] #pubkey list
+    agg_pubkey = bytes_from_point(xonly_point_agg(pubkeys))
 
-    # X_mal_new = negate X_hon + X_mal
-    # negate X_hon = y -> p-y
-    # return [X_hon, X_mal_new]
-    X_hon_point, X_mal_point = lift_x(X_hon), lift_x(X_mal)
-    X_hon_neg_point = (X_hon_point[0], p - X_hon_point[1])
-    X_mal_new_point = point_add(X_mal_point, X_hon_neg_point)
-    X_mal_new = bytes_from_point(X_mal_new_point)
-
-    X = [X_hon, X_mal_new] #pubkey list
     # get nonce commitment of honest signer ---> Interactive Round 1
     # now send your nonce commitment as R_mal_new = negate(R_hon) + R_mal
-    R_hon = honest_signer.gen_partial_pubnonce()
-    R_mal = malicious_signer.gen_partial_pubnonce()
-    R_hon_point, R_mal_point = lift_x(R_hon), lift_x(R_mal)
-    R_hon_neg_point = (R_hon_point[0], p - R_hon_point[1])
-    R_mal_new_point = point_add(R_mal_point, R_hon_neg_point)
-    R_mal_new = bytes_from_point(R_mal_new_point)
-
-    R = xonly_point_agg([R_hon, R_mal_new])
+    R1 = honest_signer.gen_partial_pubnonce()
+    R2 = forger.gen_partial_pubnonce()
+    nonces = n*[R1] + R2
+    R = xonly_point_agg(nonce)
     aggnonce = cbytes_from_point(R)
 
     # get partial signature of honest signer ----> Interactive Round 2
     # now send your partial signature as s_mal_new = s_mal + neg(s_hon)
     #TODO: is it necessary for bytes-> int conversion here? can't python add two bytes (not concat)?
-    s_hon = honest_signer.gen_partial_sig(X, aggnonce, msg)
-    s_mal = malicious_signer.gen_partial_sig(X, aggnonce, msg)
-    temp = (int_from_bytes(s_mal) - int_from_bytes(s_hon)) % n
-    s_mal_new = bytes_from_int(temp)
+    s2 = signer2.gen_partial_sig(X, aggnonce, msg)
 
-    sig = bytes_from_point(R) + partial_sig_agg([s_hon, s_mal_new])
-
-
+    sig = bytes_from_point(R) + s2
     # verification
     # (R, s_agg)
     # c = H(X, R, msg)
@@ -106,8 +91,11 @@ class NaiveMultisigSigner:
         assert len(msg) == 32
 
         #calc aggregate nonce and pubkeys
-        #NOTE: agg X or R may have odd y
-        #TODO: can y(X) be odd? should the aggregate key be a schnorr pubkey (even y)? 
+        #TODO: can y(X) be odd? should the aggregate key be a schnorr pubkey (even y)?
+        # Ans: - yes, since, if we change this the final verification will fail 
+        #      - also, everyone will have your pubkey so, you shouldn't modify its value
+        #      - for this reason during schnorr_sign, you make x = n - x (changing priv key for signature)
+        #      - since, schnorr_verify uses lift(x) which always has even y
         X = xonly_point_agg(pubkeys)
         R = point_from_cbytes(aggnonce)
         r1 = xonly_int(self.secnonce, R)
@@ -125,14 +113,15 @@ def test_normal_multisig():
     X1 = signer1.get_pubkey()
     X2 = signer2.get_pubkey()
     pubkeys = [X1, X2]
-    agg_pubkey = bytes_from_point(xonly_point_agg(pubkeys))
+    # X = xonly_point_agg(pubkeys) --> y(X) = odd or even ---> this is not the true agg nonce since, all y(Ri) is assumed as even
+    agg_pubkey = bytes_from_point(xonly_point_agg(pubkeys)) # x-only
 
     R1 = signer1.gen_partial_pubnonce()
     R2 = signer2.gen_partial_pubnonce()
-    R = xonly_point_agg([R1, R2]) # why no `bytes_from_point()` func?
+    R = xonly_point_agg([R1, R2]) # y(R) = even or odd ---> this is not the true agg nonce since, all y(Ri) is assumed as even
     msg = b'msg signed by both Alice and Bob'
 
-    aggnonce = cbytes_from_point(R) # cbytes_from_point() vs bytes_from_point()?
+    aggnonce = cbytes_from_point(R) # cbytes_from_point() - preserves info if y(R) = odd. Need this for final valid verify
     s1 = signer1.gen_partial_sig(pubkeys, aggnonce, msg)
     s2 = signer2.gen_partial_sig(pubkeys, aggnonce, msg)
     sig = bytes_from_point(R) + partial_sig_agg([s1, s2])
