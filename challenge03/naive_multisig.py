@@ -30,18 +30,9 @@ def forge_signature(honest_signer, msg):
     X1_pt = lift_x(X1)
     X2_pt = lift_x(X2)
     X3_pt = (X1_pt[0], p-X1_pt[1])
-    X3 = bytes_from_point(X3_pt)
-    final_pt = point_add(X1_pt, point_add(X2_pt, X3_pt))
-    pubkeys = [X1, X2, X3]
-    agg_pt = xonly_point_agg(pubkeys)
-    agg_pubkey = bytes_from_point(agg_pt)
-    # print("X1              : {}".format(X1_pt))
-    # print("X3              : {}".format(X3_pt))
-    # print("X2_pt           : {}".format(X2_pt))
-    # print("final_pt        : {}".format(final_pt))
-    # print("agg_pt          : {}".format(agg_pt))
-    # print("agg (bytes)     : {}".format(agg_pubkey))
-    # print("final_pt (bytes): {}".format(bytes_from_point(final_pt)))
+    X2_pt = point_add(X2_pt, X3_pt)
+    X2 = bytes_from_point(X2_pt)
+    pubkeys = [X1, X2]
 
     # get nonce commitment of honest signer ---> Interactive Round 1
     # now send your nonce commitment as R_mal_new = negate(R_hon) + R_mal
@@ -50,8 +41,9 @@ def forge_signature(honest_signer, msg):
     R1_pt = lift_x(R1)
     R2_pt = lift_x(R2)
     R3_pt = (R1_pt[0], p-R1_pt[1])
-    R3 = bytes_from_point(R3_pt)
-    nonces = [R1, R2, R3]
+    R2_pt = point_add(R2_pt, R3_pt)
+    R2 = bytes_from_point(R2_pt)
+    nonces = [R1, R2]
     R = xonly_point_agg(nonces)
     aggnonce = cbytes_from_point(R)
 
