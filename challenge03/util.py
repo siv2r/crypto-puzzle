@@ -21,11 +21,6 @@ def xonly_int(b: bytes, P_agg: Point) -> int:
     k = int_from_bytes(b)
     if has_even_y(point_mul(G, k)) != has_even_y(P_agg):
         k = n - k
-    # NOTE: the above condt is a nicer way of writing
-    # if not has_even_y(point_mul(G, k)): # since, nonce aggregation assumes all y(Ri) = even
-    #     k = n - k
-    # if not has_even_y(P_agg): # since, verify uses lift_x() which always results in y(P_agg or R_agg) = even
-    #     k = n - k
     return k
 
 def partial_sig_agg(partial_sigs: List[bytes]) -> bytes:

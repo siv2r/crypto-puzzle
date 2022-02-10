@@ -9,7 +9,7 @@ import binascii
 #
 # If you want to print values on an individual basis, use
 # the pretty() function, e.g., print(pretty(foo)).
-DEBUG = True
+DEBUG = False
 
 p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
 n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -134,13 +134,11 @@ def schnorr_verify(msg: bytes, pubkey: bytes, sig: bytes) -> bool:
     r = int_from_bytes(sig[0:32])
     s = int_from_bytes(sig[32:64])
     if (P is None) or (r >= p) or (s >= n):
-        print("assert on r, s, P failed")
         debug_print_vars()
         return False
     e = int_from_bytes(tagged_hash("BIP0340/challenge", sig[0:32] + pubkey + msg)) % n
     R = point_add(point_mul(G, s), point_mul(P, n - e))
     if (R is None) or (not has_even_y(R)) or (x(R) != r): #TODO: why not R == point_mul(G, r)??
-        print("x(R) != r, y(R) is not even, or R == None")
         debug_print_vars()
         return False
     debug_print_vars()

@@ -23,60 +23,30 @@ def forge_signature(honest_signer, msg):
     the challenge would be trivial.
     Good luck!
     """
-    # X1 = honest, X2 = forger
-    forger = NaiveMultisigSigner()
-    X1 = honest_signer.get_pubkey() #TODO: this pubkey has even y always? ---> no
-    X2 = forger.get_pubkey()
-    X1_pt = lift_x(X1)
-    X2_pt = lift_x(X2)
-    X3_pt = (X1_pt[0], p-X1_pt[1])
-    X2_pt = point_add(X2_pt, X3_pt)
-    X2 = bytes_from_point(X2_pt)
-    pubkeys = [X1, X2]
+    # generate X1 and X2 such that:
+    # 1. X2-X1 has an even y co-ordinate
+    # 2. X2 has an even y co-ordinate
+    while True:
+        forger = NaiveMultisigSigner()
+        X1 = honest_signer.get_pubkey() 
+        X2 = forger.get_pubkey()
+        X1_pt, X2_pt = lift_x(X1), lift_x(X2)
+        X3_pt = (X1_pt[0], p-X1_pt[1])
+        X2_new_pt = point_add(X2_pt, X3_pt)
+        # X2' = X2 - X1 should have even y since, x_only_agg function always 
+        # assumes the pubkeys in the list to be of even y during aggregation
+        #TODO: is has_even_y(X2_pt) needed here? i.e, aggregate pubkey even y?
+        if has_even_y(X2_new_pt):
+            break
 
-    # get nonce commitment of honest signer ---> Interactive Round 1
-    # now send your nonce commitment as R_mal_new = negate(R_hon) + R_mal
-    R1 = honest_signer.gen_partial_pubnonce()
-    R2 = forger.gen_partial_pubnonce()
-    R1_pt = lift_x(R1)
-    R2_pt = lift_x(R2)
-    R3_pt = (R1_pt[0], p-R1_pt[1])
-    R2_pt = point_add(R2_pt, R3_pt)
-    R2 = bytes_from_point(R2_pt)
-    nonces = [R1, R2]
-    R = xonly_point_agg(nonces)
-    aggnonce = cbytes_from_point(R)
+    # X1 = honest pubkey, X2 = forger pubkey, X2_new = X2 - X1     
+    X2_new = bytes_from_point(X2_new_pt)
+    pubkeys = [X1, X2_new]
+    # sign msg using X2
+    sig = schnorr_sign(msg, forger.seckey, secrets.token_bytes(32))    
 
-    # get partial signature of honest signer ----> Interactive Round 2
-    # now send your partial signature as s_mal_new = s_mal + neg(s_hon)
-    #TODO: is it necessary for bytes-> int conversion here? can't python add two bytes (not concat)?
-    s2 = forger.gen_partial_sig(pubkeys, aggnonce, msg)
-
-    sig = bytes_from_point(R) + s2
-    # verification
-    # (R, s_agg)
-    # c = H(X, R, msg)
-    # G * (s_mal_new + s_hon) ?= R + c * X
-    # G * (s_mal) ?= R + c * X => returns true since, R and X have been modified
     return pubkeys, sig
-# BIP-340 impl notes
-# EC point is stored as int tuple so, need to convert it to bytes
-# bytes are converted to int for scalar arithmetic
-#TODO: why is "inf" the identity elem? why not the point (0, 0)?
-#TODO: does python support arithmetic on bytes?
 
-# BIP-340 function notes
-# 1. pubkey_gen        -> returns a 32 bytes array, x-coordinate of generated pubkey (y = even or odd)
-# 2. int_from_bytes    -> int from the given big endian byte array
-# 3. bytes_from_int    -> 32 bytes array from int
-# 4. bytes_from_point  -> 32 byte array of x-coordinate of the EC Point
-# 5. tagged_hash       -> hash the given msg according to BIP-340
-# 6. lift_x            -> generates (x, y) EC point for the given x (in bytes). Here, y = even
-
-# Util function notes
-# 1. cbytes_from_point -> compressed 33 byte array EC Point (0x02 = even y, 0x03 = odd y)
-# 2. point_from_cbytes -> creates EC Point from the given compressed EC Point. Point = ECDSA pubkey
-# 3. xonly_point_agg   -> return (x, y) EC point addition result for x-only points input array
 
 class NaiveMultisigSigner:
     def __init__(self, seckey=None):
@@ -99,12 +69,6 @@ class NaiveMultisigSigner:
         assert len(aggnonce) == 33
         assert len(msg) == 32
 
-        #calc aggregate nonce and pubkeys
-        #TODO: can y(X) be odd? should the aggregate key be a schnorr pubkey (even y)?
-        # Ans: - yes, since, if we change this the final verification will fail 
-        #      - also, everyone will have your pubkey so, you shouldn't modify its value
-        #      - for this reason during schnorr_sign, you make x = n - x (changing priv key for signature)
-        #      - since, schnorr_verify uses lift(x) which always has even y
         X = xonly_point_agg(pubkeys)
         R = point_from_cbytes(aggnonce)
         r1 = xonly_int(self.secnonce, R)
